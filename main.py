@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from mcp.server.fastmcp import FastMCP
@@ -9,7 +11,7 @@ cache = []
 
 
 @mcp.tool()
-def run_ols_regression(formula):
+def run_ols_regression(formula: str) -> str:
     """Run a linear regression based on a patsy formula
 
     Args:
@@ -20,7 +22,7 @@ def run_ols_regression(formula):
 
 
 @mcp.tool()
-def run_logistic_regression(formula):
+def run_logistic_regression(formula: str) -> str:
     """Run a logistic regression based on a patsy formula
 
     Args:
@@ -31,12 +33,13 @@ def run_logistic_regression(formula):
 
 
 @mcp.tool()
-async def load_data(file_path: str) -> str:
+async def load_data(file_path: Path) -> str:
     """Load data from a file path to a data frame.
 
     Args:
         file_path: path to the data file
     """
+    assert isinstance(file_path, Path)
     df = pd.read_csv(file_path)
     cache.append(df)
     return "Loaded data succesfully"

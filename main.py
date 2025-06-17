@@ -1,17 +1,19 @@
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
 from mcp.server.fastmcp import FastMCP
+from sqlalchemy import create_engine
 from statsmodels.api import formula as smf
 
 
 class DataAnalysisServer:
     def __init__(self):
-        self.sessions: Dict[str, Dict[str, Any]] = {}
+        self.sessions: dict[str, dict[str, Any]] = {}
 
     def create_session(self) -> str:
         session_id = str(uuid.uuid4())
@@ -22,7 +24,7 @@ class DataAnalysisServer:
         }
         return session_id
 
-    def get_session(self, session_id: str) -> Dict[str, Any]:
+    def get_session(self, session_id: str) -> dict[str, Any]:
         if session_id not in self.sessions:
             raise ValueError(f"Session {session_id} not found")
         return self.sessions[session_id]
@@ -39,13 +41,47 @@ def create_analysis_session() -> str:
 
 
 @mcp.tool()
-def load_data(session_id: str, file_path: Path) -> str:
-    """Load data into a specific session"""
-    assert isinstance(file_path, Path)
+def load_data(session_id: str, file_path: str | Path) -> str:
+    """Load data into a specific session from various file formats.
+
+    Supported formats:
+    - CSV files (.csv)
+    - Excel files (.xlsx, .xls)
+    - JSON files (.json)
+    - Parquet files (.parquet)
+    - SQLite databases (sqlite:/// prefix)
+    """
     session = server.get_session(session_id)
-    session["data"] = pd.read_csv(file_path)
-    session["metadata"]["file_path"] = file_path
-    return f"Data loaded successfully into session {session_id}"
+
+    if isinstance(file_path, str):
+        parsed = urlparse(file_path)
+        if parsed.scheme == "sqlite":
+            engine = create_engine(file_path)
+            table = parsed.path.split("/")[-1]
+            session["data"] = pd.read_sql_table(table, engine)
+            session["metadata"]["file_path"] = file_path
+            return f"Data loaded successfully from SQLite database into session {session_id}"
+        file_path = Path(file_path)
+
+    suffix = file_path.suffix.lower()
+
+    try:
+        if suffix == ".csv":
+            session["data"] = pd.read_csv(file_path)
+        elif suffix in (".xlsx", ".xls"):
+            session["data"] = pd.read_excel(file_path)
+        elif suffix == ".json":
+            session["data"] = pd.read_json(file_path)
+        elif suffix == ".parquet":
+            session["data"] = pd.read_parquet(file_path)
+        else:
+            raise ValueError(f"Unsupported file format: {suffix}")
+
+        session["metadata"]["file_path"] = str(file_path)
+        return f"Data loaded successfully into session {session_id}"
+
+    except Exception as e:
+        raise ValueError(f"Error loading data: {str(e)}")
 
 
 @mcp.tool()

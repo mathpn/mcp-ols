@@ -297,33 +297,33 @@ def create_residual_plots(session_id: str, model_id: str) -> Image:
 #     img_base64 = _plot_to_base64(fig)
 #
 #     return f"data:image/png;base64,{img_base64}"
-#
-#
-# @mcp.tool()
-# def list_models(session_id: str) -> str:
-#     """List all fitted models in a session."""
-#     session = server.get_session(session_id)
-#
-#     if not session["models"]:
-#         return "No models found in this session."
-#
-#     results = []
-#     results.append("Fitted Models in Session:")
-#     results.append("=" * 30)
-#
-#     for model_id, model_info in session["models"].items():
-#         results.append(f"\\nModel ID: {model_id}")
-#         results.append(f"  Type: {model_info['type'].upper()}")
-#         results.append(f"  Formula: {model_info['formula']}")
-#
-#         model = model_info["model"]
-#         if hasattr(model, "rsquared"):
-#             results.append(f"  R-squared: {model.rsquared:.4f}")
-#         results.append(f"  AIC: {model.aic:.4f}")
-#
-#     return "\\n".join(results)
-#
-#
+
+
+@mcp.tool()
+def list_models(session_id: str) -> str:
+    """List all fitted models in a session."""
+    session = server.get_session(session_id)
+
+    if not session["models"]:
+        return "No models found in this session."
+
+    results = []
+    results.append("Fitted Models in Session:")
+    results.append("=" * 30)
+
+    for model_id, model_info in session["models"].items():
+        results.append(f"\nModel ID: {model_id}")
+        results.append(f"  Type: {model_info['type'].upper()}")
+        results.append(f"  Formula: {model_info['formula']}")
+
+        model = model_info["model"]
+        if hasattr(model, "rsquared"):
+            results.append(f"  R-squared: {model.rsquared:.4f}")
+        results.append(f"  AIC: {model.aic:.4f}")
+
+    return "\n".join(results)
+
+
 def main():
     mcp.run(transport="stdio")
 

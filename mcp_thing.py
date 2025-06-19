@@ -159,6 +159,16 @@ def _plot_to_base64(fig) -> str:
     return img_base64
 
 
+def _get_residuals(model_info):
+    match model_info["type"]:
+        case "ols":
+            return model_info["model"].resid
+        case "logit":
+            return model_info["model"].resid_response
+        case _:
+            raise NotImplementedError("unsupported model type")
+
+
 @mcp.tool()
 def create_residual_plots(session_id: str, model_id: str) -> Image:
     """Create residual diagnostic plots for a fitted model.
@@ -172,19 +182,18 @@ def create_residual_plots(session_id: str, model_id: str) -> Image:
     model_info = session["models"][model_id]
     model = model_info["model"]
 
-    # Create figure with subplots
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     fig.suptitle(f"Residual Diagnostics for {model_id}", fontsize=16)
 
     # 1. Residuals vs Fitted
-    axes[0, 0].scatter(model.fittedvalues, model.resid, alpha=0.6)
+    axes[0, 0].scatter(model.fittedvalues, _get_residuals(model_info), alpha=0.6)
     axes[0, 0].axhline(y=0, color="red", linestyle="--")
     axes[0, 0].set_xlabel("Fitted Values")
     axes[0, 0].set_ylabel("Residuals")
     axes[0, 0].set_title("Residuals vs Fitted")
 
     # 2. Q-Q Plot
-    stats.probplot(model.resid, dist="norm", plot=axes[0, 1])
+    stats.probplot(_get_residuals(model_info), dist="norm", plot=axes[0, 1])
     axes[0, 1].set_title("Q-Q Plot")
 
     # 3. Scale-Location Plot
@@ -206,97 +215,96 @@ def create_residual_plots(session_id: str, model_id: str) -> Image:
     bytes_io = io.BytesIO()
     plt.savefig(bytes_io, format="png")
     return Image(data=bytes_io.getvalue(), format="png")
-    img_base64 = _plot_to_base64(fig)
-
-    return f"data:image/png;base64,{img_base64}"
 
 
-# @mcp.tool()
-# def model_assumptions_test(session_id: str, model_id: str) -> str:
-#     """Test model assumptions for a fitted regression model."""
-#     session = server.get_session(session_id)
-#     if model_id not in session["models"]:
-#         raise ValueError(f"Model {model_id} not found in session")
-#
-#     model_info = session["models"][model_id]
-#     model = model_info["model"]
-#
-#     results = []
-#     results.append(f"Model Assumption Tests for {model_id}")
-#     results.append("=" * 50)
-#
-#     # Normality test (Jarque-Bera)
-#     jb_stat, jb_pvalue = jarque_bera(model.resid)
-#     results.append(f"\\nNormality Test (Jarque-Bera):")
-#     results.append(f"  Statistic: {jb_stat:.4f}")
-#     results.append(f"  P-value: {jb_pvalue:.4f}")
-#     results.append(
-#         f"  Result: {'Normal' if jb_pvalue > 0.05 else 'Not Normal'} (α=0.05)"
-#     )
-#
-#     # Homoscedasticity test (Breusch-Pagan)
-#     if model_info["type"] == "ols":
-#         bp_stat, bp_pvalue, _, _ = het_breuschpagan(model.resid, model.model.exog)
-#         results.append(f"\\nHomoscedasticity Test (Breusch-Pagan):")
-#         results.append(f"  Statistic: {bp_stat:.4f}")
-#         results.append(f"  P-value: {bp_pvalue:.4f}")
-#         results.append(
-#             f"  Result: {'Homoscedastic' if bp_pvalue > 0.05 else 'Heteroscedastic'} (α=0.05)"
-#         )
-#
-#     # Additional model statistics
-#     results.append(f"\\nModel Statistics:")
-#     results.append(f"  R-squared: {getattr(model, 'rsquared', 'N/A')}")
-#     results.append(f"  Adj. R-squared: {getattr(model, 'rsquared_adj', 'N/A')}")
-#     results.append(f"  AIC: {model.aic:.4f}")
-#     results.append(f"  BIC: {model.bic:.4f}")
-#
-#     return "\\n".join(results)
-#
-#
-# @mcp.tool()
-# def influence_diagnostics(session_id: str, model_id: str) -> str:
-#     """Create influence diagnostics plot for a fitted model."""
-#     session = server.get_session(session_id)
-#     if model_id not in session["models"]:
-#         raise ValueError(f"Model {model_id} not found in session")
-#
-#     model_info = session["models"][model_id]
-#     model = model_info["model"]
-#
-#     # Get influence measures
-#     influence = model.get_influence()
-#     cooks_d = influence.cooks_distance[0]
-#     leverage = influence.hat_matrix_diag
-#
-#     # Create plot
-#     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-#     fig.suptitle(f"Influence Diagnostics for {model_id}", fontsize=16)
-#
-#     # Cook's Distance
-#     ax1.stem(range(len(cooks_d)), cooks_d, basefmt=" ")
-#     ax1.axhline(
-#         y=4 / len(cooks_d), color="red", linestyle="--", label="Threshold (4/n)"
-#     )
-#     ax1.set_xlabel("Observation")
-#     ax1.set_ylabel("Cook's Distance")
-#     ax1.set_title("Cook's Distance")
-#     ax1.legend()
-#
-#     # Leverage vs Standardized Residuals
-#     ax2.scatter(leverage, model.resid_pearson, alpha=0.6)
-#     ax2.axhline(y=0, color="red", linestyle="--")
-#     ax2.axvline(
-#         x=2 * len(model.params) / len(leverage), color="red", linestyle="--", alpha=0.5
-#     )
-#     ax2.set_xlabel("Leverage")
-#     ax2.set_ylabel("Standardized Residuals")
-#     ax2.set_title("Leverage vs Standardized Residuals")
-#
-#     plt.tight_layout()
-#     img_base64 = _plot_to_base64(fig)
-#
-#     return f"data:image/png;base64,{img_base64}"
+@mcp.tool()
+def model_assumptions_test(session_id: str, model_id: str) -> str:
+    """Test model assumptions for a fitted regression model."""
+    session = server.get_session(session_id)
+    if model_id not in session["models"]:
+        raise ValueError(f"Model {model_id} not found in session")
+
+    model_info = session["models"][model_id]
+    model = model_info["model"]
+
+    results = []
+    results.append(f"Model Assumption Tests for {model_id}")
+
+    # Normality test (Jarque-Bera)
+    jb_stat, jb_pvalue, skew, kurtosis = jarque_bera(_get_residuals(model_info))
+    results.append("\nNormality Test (Jarque-Bera):")
+    results.append(f"  Statistic: {jb_stat:.4f}")
+    results.append(f"  P-value: {jb_pvalue:.4f}")
+    results.append(
+        f"  Result: {'Normal' if jb_pvalue > 0.05 else 'Not Normal'} (α=0.05)"
+    )
+
+    # Homoscedasticity test (Breusch-Pagan)
+    if model_info["type"] == "ols":
+        bp_stat, bp_pvalue, _, _ = het_breuschpagan(
+            _get_residuals(model_info), model.model.exog
+        )
+        results.append("\nHomoscedasticity Test (Breusch-Pagan):")
+        results.append(f"  Statistic: {bp_stat:.4f}")
+        results.append(f"  P-value: {bp_pvalue:.4f}")
+        results.append(
+            f"  Result: {'Homoscedastic' if bp_pvalue > 0.05 else 'Heteroscedastic'} (α=0.05)"
+        )
+
+    # Additional model statistics
+    results.append("\nModel Statistics:")
+    if hasattr(model, "rsquared"):
+        results.append(f"  R-squared: {getattr(model, 'rsquared', 'N/A')}")
+        results.append(f"  Adj. R-squared: {getattr(model, 'rsquared_adj', 'N/A')}")
+    results.append(f"  AIC: {model.aic:.4f}")
+    results.append(f"  BIC: {model.bic:.4f}")
+
+    return "\n".join(results)
+
+
+@mcp.tool()
+def influence_diagnostics(session_id: str, model_id: str):
+    """Create influence diagnostics plot for a fitted model."""
+    session = server.get_session(session_id)
+    if model_id not in session["models"]:
+        raise ValueError(f"Model {model_id} not found in session")
+
+    model_info = session["models"][model_id]
+    model = model_info["model"]
+
+    # Get influence measures
+    influence = model.get_influence()
+    cooks_d = influence.cooks_distance[0]
+    leverage = influence.hat_matrix_diag
+
+    # Create plot
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle(f"Influence Diagnostics for {model_id}", fontsize=16)
+
+    # Cook's Distance
+    ax1.stem(range(len(cooks_d)), cooks_d, basefmt=" ")
+    ax1.axhline(
+        y=4 / len(cooks_d), color="red", linestyle="--", label="Threshold (4/n)"
+    )
+    ax1.set_xlabel("Observation")
+    ax1.set_ylabel("Cook's Distance")
+    ax1.set_title("Cook's Distance")
+    ax1.legend()
+
+    # Leverage vs Standardized Residuals
+    ax2.scatter(leverage, model.resid_pearson, alpha=0.6)
+    ax2.axhline(y=0, color="red", linestyle="--")
+    ax2.axvline(
+        x=2 * len(model.params) / len(leverage), color="red", linestyle="--", alpha=0.5
+    )
+    ax2.set_xlabel("Leverage")
+    ax2.set_ylabel("Standardized Residuals")
+    ax2.set_title("Leverage vs Standardized Residuals")
+
+    plt.tight_layout()
+    bytes_io = io.BytesIO()
+    plt.savefig(bytes_io, format="png")
+    return Image(data=bytes_io.getvalue(), format="png")
 
 
 @mcp.tool()

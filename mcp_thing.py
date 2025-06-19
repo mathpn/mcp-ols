@@ -97,7 +97,7 @@ def load_data(session_id: str, file_path: str | Path) -> str:
 
 
 @mcp.tool()
-def run_ols_regression(session_id: str, formula: str) -> str:
+def run_ols_regression(session_id: str, formula: str):
     """Run a linear regression based on a patsy formula.
 
     Args:
@@ -114,29 +114,28 @@ def run_ols_regression(session_id: str, formula: str) -> str:
     model_id = f"ols_{len(session['models']) + 1}"
     session["models"][model_id] = {"model": model, "formula": formula, "type": "ols"}
 
-    return f"Model ID: {model_id}\n\n{str(model.summary())}"
+    return {"model_id": model_id, "summary": model.summary().as_html()}
 
 
-# @mcp.tool()
-# def run_logistic_regression(session_id: str, formula: str) -> str:
-#     """Run a logistic regression based on a patsy formula.
-#
-#     Args:
-#         formula: string of format Y ~ X_1 + X_2 + ... + X_n
-#     """
-#     session = server.get_session(session_id)
-#     if session["data"] is None:
-#         raise ValueError("No data loaded in this session")
-#
-#     data = session["data"]
-#     model = smf.logit(formula, data).fit()
-#
-#     # Store the fitted model in the session
-#     model_id = f"logit_{len(session['models']) + 1}"
-#     session["models"][model_id] = {"model": model, "formula": formula, "type": "logit"}
-#
-#     return f"Model ID: {model_id}\n\n{str(model.summary())}"
-#
+@mcp.tool()
+def run_logistic_regression(session_id: str, formula: str):
+    """Run a logistic regression based on a patsy formula.
+
+    Args:
+        formula: string of format Y ~ X_1 + X_2 + ... + X_n
+    """
+    session = server.get_session(session_id)
+    if session["data"] is None:
+        raise ValueError("No data loaded in this session")
+
+    data = session["data"]
+    model = smf.logit(formula, data).fit()
+
+    # Store the fitted model in the session
+    model_id = f"logit_{len(session['models']) + 1}"
+    session["models"][model_id] = {"model": model, "formula": formula, "type": "logit"}
+
+    return {"model_id": model_id, "summary": model.summary().as_html()}
 
 
 @mcp.tool()

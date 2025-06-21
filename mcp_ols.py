@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -337,8 +338,92 @@ def influence_diagnostics(session_id: str, model_id: str):
 
 
 @mcp.tool()
-def list_models(session_id: str):
-    """List all fitted models in a session."""
+def create_partial_dependence_plot(
+    session_id: str, model_id: str, feature: str, num_points: int = 100
+) -> Image:
+    """Create a partial dependence plot (PDP) for a specific feature.
+
+    A partial dependence plot shows the marginal effect of a feature on the predicted
+    outcome of a model. It shows how the model's predictions change as a feature varies
+    over its range, while keeping all other features constant.
+
+    Args:
+        session_id: The ID of the analysis session
+        model_id: The ID of the fitted model to analyze
+        feature: The name of the feature to analyze
+        num_points: Number of points to evaluate the partial dependence (default: 100)
+
+    Returns:
+        A matplotlib figure showing the partial dependence plot
+
+    Raises:
+        ValueError: If the session, model, or feature is not found
+    """
+    session = server.get_session(session_id)
+    if model_id not in session["models"]:
+        raise ValueError(f"Model {model_id} not found in session")
+
+    model_info = session["models"][model_id]
+    model = model_info["model"]
+    data = session["data"]
+
+    if feature not in data.columns:
+        raise ValueError(f"Feature {feature} not found in dataset")
+
+    # Create a range of values for the feature
+    feature_values = np.linspace(data[feature].min(), data[feature].max(), num_points)
+
+    # Calculate partial dependence
+    avg_predictions = []
+    for value in feature_values:
+        # Create a copy of the data with the feature set to the current value
+        temp_data = data.copy()
+        temp_data[feature] = value
+
+        # Get predictions
+        if model_info["type"] == "ols":
+            predictions = model.predict(temp_data)
+        else:  # logistic regression
+            predictions = model.predict(temp_data)
+
+        # Average the predictions
+        avg_predictions.append(predictions.mean())
+
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(feature_values, avg_predictions)
+    ax.set_xlabel(feature)
+    ax.set_ylabel("Partial dependence")
+    ax.set_title(f"Partial Dependence Plot for {feature}")
+
+    # Add rug plot
+    ax.plot(
+        data[feature], np.zeros_like(data[feature]) - 0.1, "|", color="k", alpha=0.2
+    )
+
+    # Add confidence intervals if it's an OLS model
+    if model_info["type"] == "ols":
+        std_dev = np.std(avg_predictions)
+        ax.fill_between(
+            feature_values,
+            np.array(avg_predictions) - 1.96 * std_dev,
+            np.array(avg_predictions) + 1.96 * std_dev,
+            alpha=0.2,
+            label="95% CI",
+        )
+        ax.legend()
+
+    plt.tight_layout()
+    bytes_io = io.BytesIO()
+    plt.savefig(bytes_io, format="png")
+    plt.close(fig)
+    return Image(data=bytes_io.getvalue(), format="png")
+def list_models(session_id: str) -> list[dict[str, Any]]:
+    """List all fitted models in a session.
+
+    Returns:
+        A list of dictionaries containing model information
+    """
     session = server.get_session(session_id)
 
     results = []

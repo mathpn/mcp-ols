@@ -1,4 +1,3 @@
-import base64
 import io
 import uuid
 from datetime import datetime
@@ -7,10 +6,10 @@ from typing import Any
 from urllib.parse import urlparse
 
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.gridspec import GridSpec
 from mcp.server.fastmcp import FastMCP, Image
 from scipy import stats
 from sqlalchemy import create_engine
@@ -149,16 +148,6 @@ def describe_data(session_id: str) -> str:
 
     data = session["data"]
     return data.dtypes
-
-
-def _plot_to_base64(fig) -> str:
-    """Convert matplotlib figure to base64 string."""
-    buffer = io.BytesIO()
-    fig.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
-    buffer.seek(0)
-    img_base64 = base64.b64encode(buffer.read()).decode()
-    plt.close(fig)
-    return img_base64
 
 
 def _get_residuals(model_info):

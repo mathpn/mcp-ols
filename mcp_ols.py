@@ -15,6 +15,7 @@ from scipy import stats
 from sqlalchemy import create_engine
 from statsmodels.api import formula as smf
 from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import jarque_bera
 
 # Set matplotlib to non-interactive backend
@@ -267,6 +268,33 @@ def model_assumptions_test(session_id: str, model_id: str) -> str:
     results.append(f"  BIC: {model.bic:.4f}")
 
     return "\n".join(results)
+
+
+@mcp.tool()
+def vif_table(session_id: str, model_id: str):
+    """
+    Compute a variance inflation factor (VIF) table.
+
+    VIF is a measure of multicollinearity.
+    VIF > 5 for a variable indicates that it is highly collinear with the
+    other input variables.
+    """
+    session = server.get_session(session_id)
+    if model_id not in session["models"]:
+        raise ValueError(f"Model {model_id} not found in session")
+
+    model_info = session["models"][model_id]
+    model = model_info["model"]
+
+    xvar = model.model.exog
+    xvar_names = model.model.exog_names
+    vif_df = pd.DataFrame()
+    vif_df["Features"] = xvar_names
+    vif_df["VIF Factor"] = [
+        variance_inflation_factor(xvar, i) for i in range(xvar.shape[1])
+    ]
+
+    return vif_df.sort_values("VIF Factor").round(2).to_markdown(index=False)
 
 
 @mcp.tool()

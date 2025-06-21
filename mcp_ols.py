@@ -359,26 +359,16 @@ def create_partial_dependence_plot(
     if feature not in data.columns:
         raise ValueError(f"Feature {feature} not found in dataset")
 
-    # Create a range of values for the feature
     feature_values = np.linspace(data[feature].min(), data[feature].max(), num_points)
 
-    # Calculate partial dependence
     avg_predictions = []
     for value in feature_values:
-        # Create a copy of the data with the feature set to the current value
         temp_data = data.copy()
         temp_data[feature] = value
 
-        # Get predictions
-        if model_info["type"] == "ols":
-            predictions = model.predict(temp_data)
-        else:  # logistic regression
-            predictions = model.predict(temp_data)
-
-        # Average the predictions
+        predictions = model.predict(temp_data)
         avg_predictions.append(predictions.mean())
 
-    # Create the plot
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(feature_values, avg_predictions)
     ax.set_xlabel(feature)
@@ -407,6 +397,72 @@ def create_partial_dependence_plot(
     plt.savefig(bytes_io, format="png")
     plt.close(fig)
     return Image(data=bytes_io.getvalue(), format="png")
+@mcp.tool()
+def compare_models(session_id: str, model_ids: list[str]) -> str:
+    """Compare multiple models using various metrics.
+
+    Args:
+        session_id: The ID of the analysis session
+        model_ids: List of model IDs to compare
+
+    Returns:
+        A formatted string with model comparison results
+    """
+    session = server.get_session(session_id)
+
+    # Validate all models exist
+    for model_id in model_ids:
+        if model_id not in session["models"]:
+            raise ValueError(f"Model {model_id} not found in session")
+
+    # Initialize comparison data
+    comparison_data = []
+
+    for model_id in model_ids:
+        model_info = session["models"][model_id]
+        model = model_info["model"]
+
+        metrics = {
+            "Model ID": model_id,
+            "Type": model_info["type"],
+            "Formula": model_info["formula"],
+            "AIC": model.aic,
+            "BIC": model.bic,
+            "Log-Likelihood": model.llf,
+        }
+
+        if model_info["type"] == "ols":
+            metrics.update(
+                {
+                    "R-squared": model.rsquared,
+                    "Adj. R-squared": model.rsquared_adj,
+                    "MSE": ((model.resid**2).mean()),
+                    "RMSE": np.sqrt((model.resid**2).mean()),
+                }
+            )
+        elif model_info["type"] == "logit":
+            metrics.update(
+                {
+                    "Pseudo R-squared": model.prsquared,
+                    "Percent Correctly Predicted": model.pred_table()[0]
+                    / model.pred_table().sum(),
+                }
+            )
+
+        comparison_data.append(metrics)
+
+    comparison_df = pd.DataFrame(comparison_data)
+
+    numeric_cols = comparison_df.select_dtypes(include=[np.number]).columns
+    comparison_df[numeric_cols] = comparison_df[numeric_cols].round(4)
+
+    result = comparison_df.to_markdown(index=False)
+    if result is None:
+        raise ValueError("Failed to generate markdown table")
+    return result
+
+
+@mcp.tool()
 def list_models(session_id: str) -> list[dict[str, Any]]:
     """List all fitted models in a session.
 

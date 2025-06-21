@@ -397,6 +397,164 @@ def create_partial_dependence_plot(
     plt.savefig(bytes_io, format="png")
     plt.close(fig)
     return Image(data=bytes_io.getvalue(), format="png")
+
+
+@mcp.tool()
+async def visualize_model_comparison(session_id: str, model_ids: list[str]) -> Image:
+    """Create visualization comparing multiple models.
+
+    Creates plots comparing various aspects of the models including:
+    - Performance metrics (AIC, BIC, R² etc.)
+    - Residual distributions
+    - Feature coefficients/importance
+
+    Args:
+        session_id: The ID of the analysis session
+        model_ids: List of model IDs to compare
+
+    Returns:
+        A matplotlib figure comparing the models
+    """
+    session = server.get_session(session_id)
+
+    for model_id in model_ids:
+        if model_id not in session["models"]:
+            raise ValueError(f"Model {model_id} not found in session")
+
+    fig = plt.figure(figsize=(12, 8))
+    all_ols = all(m["type"] == "ols" for m in session["models"].values())
+    n_cols = 3 if all_ols else 2
+    gs = GridSpec(2, n_cols)
+
+    # Performance Metrics Comparison
+    ax1 = fig.add_subplot(gs[0, 0])
+    comparison_data = []
+    metric_names = ["AIC", "BIC"]
+
+    for model_id in model_ids:
+        model_info = session["models"][model_id]
+        model = model_info["model"]
+        metrics = [model.aic, model.bic]
+        comparison_data.append(metrics)
+
+    comparison_array = np.array(comparison_data)
+    x = np.arange(len(model_ids))
+    width = 0.8 / len(metric_names)
+
+    for i, metric in enumerate(metric_names):
+        ax1.bar(x + i * width, comparison_array[:, i], width, label=metric)
+
+    ax1.set_xticks(x + width * (len(metric_names) - 1) / 2)
+    ax1.set_xticklabels(model_ids)
+    ax1.set_title("Model Performance Metrics (AIC/BIC)")
+    ax1.legend()
+
+    if all_ols:
+        ax1_r2 = fig.add_subplot(gs[0, 1])
+        r2_data = []
+        r2_metric_names = ["R²", "Adj. R²"]
+
+        for model_id in model_ids:
+            model_info = session["models"][model_id]
+            model = model_info["model"]
+            r2_data.append([model.rsquared, model.rsquared_adj])
+
+        r2_array = np.array(r2_data)
+        width = 0.8 / len(r2_metric_names)
+
+        for i, metric in enumerate(r2_metric_names):
+            ax1_r2.bar(x + i * width, r2_array[:, i], width, label=metric)
+
+        ax1_r2.set_xticks(x + width * (len(r2_metric_names) - 1) / 2)
+        ax1_r2.set_xticklabels(model_ids)
+        ax1_r2.set_title("Model Performance Metrics (R²)")
+        ax1_r2.set_ylim(0, 1)
+        ax1_r2.legend()
+
+    # Residual distributions
+    ax2 = fig.add_subplot(gs[0, -1])
+    for model_id in model_ids:
+        model_info = session["models"][model_id]
+        resid = _get_residuals(model_info)
+        sns.kdeplot(data=resid, label=model_id, ax=ax2)
+
+    ax2.set_title("Residual Distributions")
+    ax2.set_xlabel("Residual Value")
+    ax2.set_ylabel("Density")
+    ax2.legend()
+
+    # Feature coefficients / importance
+    ax3 = fig.add_subplot(gs[1, :])
+
+    all_features = set()
+    for model_id in model_ids:
+        model_info = session["models"][model_id]
+        model = model_info["model"]
+        features = model.model.exog_names[1:]  # Exclude intercept
+        all_features.update(features)
+
+    all_features = sorted(all_features)
+    group_width = 0.8
+    bar_width = group_width / len(model_ids)
+    feature_to_idx = {feat: idx for idx, feat in enumerate(all_features)}
+
+    for i, model_id in enumerate(model_ids):
+        model_info = session["models"][model_id]
+        model = model_info["model"]
+
+        model_features = model.model.exog_names[1:]
+        model_coefs = model.params[1:]
+
+        x_positions = []
+        heights = []
+
+        for feature in all_features:
+            if feature not in model_features:
+                x_pos = (
+                    feature_to_idx[feature]
+                    + (i * bar_width)
+                    - (group_width / 2)
+                    + (bar_width / 2)
+                )
+                ax3.axvspan(
+                    x_pos - bar_width / 2,
+                    x_pos + bar_width / 2,
+                    alpha=0.2,
+                    color="gray",
+                )
+                continue
+
+            try:
+                idx = model_features.index(feature)
+                coef = model_coefs[idx]
+            except ValueError:
+                coef = 0
+
+            x_pos = (
+                feature_to_idx[feature]
+                + (i * bar_width)
+                - (group_width / 2)
+                + (bar_width / 2)
+            )
+            x_positions.append(x_pos)
+            heights.append(coef)
+
+        ax3.bar(x_positions, heights, bar_width, label=model_id, alpha=0.7)
+
+    ax3.set_xticks(range(len(all_features)))
+    ax3.set_xticklabels(all_features, rotation=45, ha="right")
+    ax3.set_title("Feature Coefficients by Model")
+    ax3.axhline(y=0, color="black", linestyle="-", linewidth=0.5)
+    ax3.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    ax3.yaxis.grid(True, linestyle="--", alpha=0.7)
+
+    plt.tight_layout()
+    bytes_io = io.BytesIO()
+    plt.savefig(bytes_io, format="png")
+    plt.close(fig)
+    return Image(data=bytes_io.getvalue(), format="png")
+
+
 @mcp.tool()
 def compare_models(session_id: str, model_ids: list[str]) -> str:
     """Compare multiple models using various metrics.

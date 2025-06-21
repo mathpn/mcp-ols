@@ -362,14 +362,22 @@ def create_partial_dependence_plot(
     feature_values = np.linspace(data[feature].min(), data[feature].max(), num_points)
 
     avg_predictions = []
+    ci_lower = []
+    ci_upper = []
+
     for value in feature_values:
         temp_data = data.copy()
         temp_data[feature] = value
 
-        predictions = model.predict(temp_data)
-        avg_predictions.append(predictions.mean())
+        predictions = model.get_prediction(temp_data)
+        mean_prediction = predictions.predicted_mean
+        ci = predictions.conf_int(alpha=0.05)
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+        avg_predictions.append(mean_prediction.mean())
+        ci_lower.append(ci[:, 0].mean())
+        ci_upper.append(ci[:, 1].mean())
+
+    fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot(feature_values, avg_predictions)
     ax.set_xlabel(feature)
     ax.set_ylabel("Partial dependence")
@@ -377,16 +385,19 @@ def create_partial_dependence_plot(
 
     # Add rug plot
     ax.plot(
-        data[feature], np.zeros_like(data[feature]) - 0.1, "|", color="k", alpha=0.2
+        data[feature],
+        np.zeros_like(data[feature]) + np.min(ci_lower) - 0.1,
+        "|",
+        color="k",
+        alpha=0.2,
     )
 
     # Add confidence intervals if it's an OLS model
     if model_info["type"] == "ols":
-        std_dev = np.std(avg_predictions)
         ax.fill_between(
             feature_values,
-            np.array(avg_predictions) - 1.96 * std_dev,
-            np.array(avg_predictions) + 1.96 * std_dev,
+            ci_lower,
+            ci_upper,
             alpha=0.2,
             label="95% CI",
         )

@@ -111,7 +111,6 @@ def run_ols_regression(session_id: str, formula: str):
     data = session["data"]
     model = smf.ols(formula, data).fit()
 
-    # Store the fitted model in the session
     model_id = f"ols_{len(session['models']) + 1}"
     session["models"][model_id] = {"model": model, "formula": formula, "type": "ols"}
 
@@ -132,7 +131,6 @@ def run_logistic_regression(session_id: str, formula: str):
     data = session["data"]
     model = smf.logit(formula, data).fit()
 
-    # Store the fitted model in the session
     model_id = f"logit_{len(session['models']) + 1}"
     session["models"][model_id] = {"model": model, "formula": formula, "type": "logit"}
 
@@ -291,12 +289,10 @@ def influence_diagnostics(session_id: str, model_id: str):
     model_info = session["models"][model_id]
     model = model_info["model"]
 
-    # Get influence measures
     influence = model.get_influence()
     cooks_d = influence.cooks_distance[0]
     leverage = influence.hat_matrix_diag
 
-    # Create plot
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
     fig.suptitle(f"Influence Diagnostics for {model_id}", fontsize=16)
 
@@ -579,12 +575,10 @@ def compare_models(session_id: str, model_ids: list[str]) -> str:
     """
     session = server.get_session(session_id)
 
-    # Validate all models exist
     for model_id in model_ids:
         if model_id not in session["models"]:
             raise ValueError(f"Model {model_id} not found in session")
 
-    # Initialize comparison data
     comparison_data = []
 
     for model_id in model_ids:

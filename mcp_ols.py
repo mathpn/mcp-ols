@@ -213,12 +213,6 @@ def create_residual_plots(session_id: str, model_id: str) -> Image:
     axes[1, 1].set_ylabel("Standardized Residuals")
     axes[1, 1].set_title("Residuals vs Leverage")
 
-    high_leverage = 2 * len(model.params) / len(resid)
-    if max(leverage) > high_leverage:
-        axes[1, 1].axvline(
-            high_leverage, label="High leverage", ls="-.", color="purple", lw=1
-        )
-
     plt.tight_layout()
     bytes_io = io.BytesIO()
     plt.savefig(bytes_io, format="png")

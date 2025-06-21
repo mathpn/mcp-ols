@@ -360,7 +360,7 @@ cli = [
 ]
 
 [[package]]
-name = "mcp-thing"
+name = "mcp-ols"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -186,7 +186,8 @@ def create_residual_plots(session_id: str, model_id: str) -> Image:
     fig.suptitle(f"Residual Diagnostics for {model_id}", fontsize=16)
 
     # 1. Residuals vs Fitted
-    axes[0, 0].scatter(model.fittedvalues, _get_residuals(model_info), alpha=0.6)
+    resid = _get_residuals(model_info)
+    axes[0, 0].scatter(model.fittedvalues, resid, alpha=0.6)
     axes[0, 0].axhline(y=0, color="red", linestyle="--")
     axes[0, 0].set_xlabel("Fitted Values")
     axes[0, 0].set_ylabel("Residuals")
@@ -210,6 +211,12 @@ def create_residual_plots(session_id: str, model_id: str) -> Image:
     axes[1, 1].set_xlabel("Leverage")
     axes[1, 1].set_ylabel("Standardized Residuals")
     axes[1, 1].set_title("Residuals vs Leverage")
+
+    high_leverage = 2 * len(model.params) / len(resid)
+    if max(leverage) > high_leverage:
+        axes[1, 1].axvline(
+            high_leverage, label="High leverage", ls="-.", color="purple", lw=1
+        )
 
     plt.tight_layout()
     bytes_io = io.BytesIO()

@@ -139,7 +139,7 @@ def run_logistic_regression(session_id: str, formula: str):
 
 
 @mcp.tool()
-async def describe_data(session_id: str) -> str:
+def describe_data(session_id: str) -> str:
     """Describe data loaded in the data frame."""
     session = server.get_session(session_id)
     if session["data"] is None:

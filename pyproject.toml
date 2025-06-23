@@ -31,3 +31,6 @@ dev = [
 
 [project.scripts]
 mcp-ols = "mcp_ols:main"
+
+[project.optional-dependencies]
+test = ["pytest"]

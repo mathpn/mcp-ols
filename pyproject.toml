@@ -24,5 +24,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 include = ["mcp_ols.py"]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
+
 [project.scripts]
 mcp-ols = "mcp_ols:main"

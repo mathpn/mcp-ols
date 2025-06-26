@@ -1,6 +1,6 @@
 [project]
 name = "mcp-ols"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server to add linear regression capabilities to LLMs."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -10,7 +10,7 @@ dependencies = [
     "mcp[cli]>=1.9.4",
     "openpyxl>=3.1.5",
     "pandas>=2.3.0",
-    "scipy>=1.15.3",
+    "scipy==1.15.3",
     "seaborn>=0.13.2",
     "sqlalchemy>=2.0.41",
     "statsmodels>=0.14.4",

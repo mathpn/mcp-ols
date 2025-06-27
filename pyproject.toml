@@ -27,10 +27,11 @@ include = ["mcp_ols.py"]
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
+    "pytest-asyncio>=1.0.0",
 ]
 
 [project.scripts]
 mcp-ols = "mcp_ols:main"
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "pytest-asyncio"]

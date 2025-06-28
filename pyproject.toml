@@ -5,9 +5,9 @@ description = "MCP server to add linear regression capabilities to LLMs."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastmcp>=2.9.2",
     "fastparquet>=2024.11.0",
     "matplotlib>=3.10.3",
-    "mcp[cli]>=1.9.4",
     "openpyxl>=3.1.5",
     "pandas>=2.3.0",
     "scipy==1.15.3",

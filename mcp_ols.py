@@ -9,8 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from fastmcp import FastMCP
+from fastmcp.utilities.types import Image
 from matplotlib.gridspec import GridSpec
-from mcp.server.fastmcp import FastMCP, Image
 from scipy import stats
 from sqlalchemy import create_engine
 from statsmodels.api import formula as smf
@@ -23,7 +24,7 @@ plt.switch_backend("Agg")
 sns.set_style("whitegrid")
 
 
-class DataAnalysisServer:
+class DataAnalysisSession:
     def __init__(self):
         self.sessions: dict[str, dict[str, Any]] = {}
 
@@ -44,17 +45,23 @@ class DataAnalysisServer:
 
 
 mcp = FastMCP("linear-regression")
-server = DataAnalysisServer()
+_session = DataAnalysisSession()
 
 
-@mcp.tool()
-def create_analysis_session() -> str:
+@mcp.tool(exclude_args=["server_session"])
+def create_analysis_session(server_session=None) -> str:
     """Create a new analysis session"""
-    return server.create_session()
+    if server_session is None:
+        server_session = _session
+    return server_session.create_session()
 
 
-@mcp.tool()
-def load_data(session_id: str, file_path: str | Path) -> str:
+@mcp.tool(exclude_args=["server_session"])
+def load_data(
+    session_id: str,
+    file_path: str | Path,
+    server_session=None,
+) -> str:
     """Load data into a specific session from various file formats.
 
     Supported formats:
@@ -64,7 +71,10 @@ def load_data(session_id: str, file_path: str | Path) -> str:
     - Parquet files (.parquet)
     - SQLite databases (sqlite:/// prefix)
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
 
     if isinstance(file_path, str):
         parsed = urlparse(file_path)
@@ -97,14 +107,17 @@ def load_data(session_id: str, file_path: str | Path) -> str:
         raise ValueError(f"Error loading data: {str(e)}")
 
 
-@mcp.tool()
-def run_ols_regression(session_id: str, formula: str):
+@mcp.tool(exclude_args=["server_session"])
+def run_ols_regression(session_id: str, formula: str, server_session=None):
     """Run a linear regression based on a patsy formula.
 
     Args:
         formula: string of format Y ~ X_1 + X_2 + ... + X_n
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
     if session["data"] is None:
         raise ValueError("No data loaded in this session")
 
@@ -117,14 +130,17 @@ def run_ols_regression(session_id: str, formula: str):
     return {"model_id": model_id, "summary": model.summary().as_html()}
 
 
-@mcp.tool()
-def run_logistic_regression(session_id: str, formula: str):
+@mcp.tool(exclude_args=["server_session"])
+def run_logistic_regression(session_id: str, formula: str, server_session=None):
     """Run a logistic regression based on a patsy formula.
 
     Args:
         formula: string of format Y ~ X_1 + X_2 + ... + X_n
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
     if session["data"] is None:
         raise ValueError("No data loaded in this session")
 
@@ -137,10 +153,13 @@ def run_logistic_regression(session_id: str, formula: str):
     return {"model_id": model_id, "summary": model.summary().as_html()}
 
 
-@mcp.tool()
-def describe_data(session_id: str) -> str:
+@mcp.tool(exclude_args=["server_session"])
+def describe_data(session_id: str, server_session=None) -> str:
     """Describe data loaded in the data frame."""
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
     if session["data"] is None:
         raise ValueError("No data loaded in this session")
 
@@ -158,13 +177,16 @@ def _get_residuals(model_info):
             raise NotImplementedError("unsupported model type")
 
 
-@mcp.tool()
-def create_residual_plots(session_id: str, model_id: str) -> Image:
+@mcp.tool(exclude_args=["server_session"])
+def create_residual_plots(session_id: str, model_id: str, server_session=None) -> Image:
     """Create residual diagnostic plots for a fitted model.
 
     Returns base64-encoded images of residual plots.
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
     if model_id not in session["models"]:
         raise ValueError(f"Model {model_id} not found in session")
 
@@ -207,10 +229,13 @@ def create_residual_plots(session_id: str, model_id: str) -> Image:
     return Image(data=bytes_io.getvalue(), format="png")
 
 
-@mcp.tool()
-def model_assumptions_test(session_id: str, model_id: str) -> str:
+@mcp.tool(exclude_args=["server_session"])
+def model_assumptions_test(session_id: str, model_id: str, server_session=None) -> str:
     """Test model assumptions for a fitted regression model."""
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
     if model_id not in session["models"]:
         raise ValueError(f"Model {model_id} not found in session")
 
@@ -252,8 +277,8 @@ def model_assumptions_test(session_id: str, model_id: str) -> str:
     return "\n".join(results)
 
 
-@mcp.tool()
-def vif_table(session_id: str, model_id: str):
+@mcp.tool(exclude_args=["server_session"])
+def vif_table(session_id: str, model_id: str, server_session=None):
     """
     Compute a variance inflation factor (VIF) table.
 
@@ -261,7 +286,10 @@ def vif_table(session_id: str, model_id: str):
     VIF > 5 for a variable indicates that it is highly collinear with the
     other input variables.
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
     if model_id not in session["models"]:
         raise ValueError(f"Model {model_id} not found in session")
 
@@ -279,10 +307,13 @@ def vif_table(session_id: str, model_id: str):
     return vif_df.sort_values("VIF Factor").round(2).to_markdown(index=False)
 
 
-@mcp.tool()
-def influence_diagnostics(session_id: str, model_id: str):
+@mcp.tool(exclude_args=["server_session"])
+def influence_diagnostics(session_id: str, model_id: str, server_session=None):
     """Create influence diagnostics plot for a fitted model."""
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
     if model_id not in session["models"]:
         raise ValueError(f"Model {model_id} not found in session")
 
@@ -322,9 +353,13 @@ def influence_diagnostics(session_id: str, model_id: str):
     return Image(data=bytes_io.getvalue(), format="png")
 
 
-@mcp.tool()
+@mcp.tool(exclude_args=["server_session"])
 def create_partial_dependence_plot(
-    session_id: str, model_id: str, feature: str, num_points: int = 100
+    session_id: str,
+    model_id: str,
+    feature: str,
+    num_points: int = 100,
+    server_session=None,
 ) -> Image:
     """Create a partial dependence plot (PDP) for a specific feature.
 
@@ -344,7 +379,10 @@ def create_partial_dependence_plot(
     Raises:
         ValueError: If the session, model, or feature is not found
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
     if model_id not in session["models"]:
         raise ValueError(f"Model {model_id} not found in session")
 
@@ -406,8 +444,12 @@ def create_partial_dependence_plot(
     return Image(data=bytes_io.getvalue(), format="png")
 
 
-@mcp.tool()
-async def visualize_model_comparison(session_id: str, model_ids: list[str]) -> Image:
+@mcp.tool(exclude_args=["server_session"])
+async def visualize_model_comparison(
+    session_id: str,
+    model_ids: list[str],
+    server_session=None,
+) -> Image:
     """Create visualization comparing multiple models.
 
     Creates plots comparing various aspects of the models including:
@@ -422,7 +464,10 @@ async def visualize_model_comparison(session_id: str, model_ids: list[str]) -> I
     Returns:
         A matplotlib figure comparing the models
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
 
     for model_id in model_ids:
         if model_id not in session["models"]:
@@ -562,8 +607,12 @@ async def visualize_model_comparison(session_id: str, model_ids: list[str]) -> I
     return Image(data=bytes_io.getvalue(), format="png")
 
 
-@mcp.tool()
-def compare_models(session_id: str, model_ids: list[str]) -> str:
+@mcp.tool(exclude_args=["server_session"])
+def compare_models(
+    session_id: str,
+    model_ids: list[str],
+    server_session=None,
+) -> str:
     """Compare multiple models using various metrics.
 
     Args:
@@ -573,7 +622,10 @@ def compare_models(session_id: str, model_ids: list[str]) -> str:
     Returns:
         A formatted string with model comparison results
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
 
     for model_id in model_ids:
         if model_id not in session["models"]:
@@ -625,14 +677,17 @@ def compare_models(session_id: str, model_ids: list[str]) -> str:
     return result
 
 
-@mcp.tool()
-def list_models(session_id: str) -> list[dict[str, Any]]:
+@mcp.tool(exclude_args=["server_session"])
+def list_models(session_id: str, server_session=None) -> list[dict[str, Any]]:
     """List all fitted models in a session.
 
     Returns:
         A list of dictionaries containing model information
     """
-    session = server.get_session(session_id)
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
 
     results = []
 

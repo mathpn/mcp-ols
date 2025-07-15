@@ -155,7 +155,13 @@ def run_logistic_regression(session_id: str, formula: str, server_session=None):
 
 @mcp.tool(exclude_args=["server_session"])
 def describe_data(session_id: str, server_session=None) -> str:
-    """Describe data loaded in the data frame."""
+    """Describe data loaded in the data frame.
+
+    Returns a string containing:
+    - Data types for each column
+    - Basic statistics (count, mean, std, min, max)
+    - Number of missing values
+    """
     if server_session is None:
         server_session = _session
 
@@ -164,7 +170,34 @@ def describe_data(session_id: str, server_session=None) -> str:
         raise ValueError("No data loaded in this session")
 
     data = session["data"]
-    return data.dtypes
+    sections = []
+
+    sections.append("## Dataset Overview\n")
+    sections.append(f"- Rows: {data.shape[0]:,}")
+    sections.append(f"- Columns: {data.shape[1]:,}")
+
+    sections.append("## Column Data Types\n")
+    sections.append(data.dtypes.to_markdown())
+    sections.append("\n")
+
+    missing = data.isnull().sum()
+    if missing.any():
+        sections.append("## Missing Values\n")
+        missing_df = pd.DataFrame(
+            {
+                "Column": missing.index,
+                "Missing Count": missing.values,
+                "Missing %": (missing.values / len(data) * 100).round(2),
+            }
+        )
+        missing_df = missing_df[missing_df["Missing Count"] > 0]
+        sections.append(missing_df.to_markdown(index=False))
+        sections.append("\n")
+
+    sections.append("## Summary Statistics\n")
+    sections.append(data.describe().round(2).to_markdown())
+
+    return "\n".join(sections)
 
 
 def _get_residuals(model_info):

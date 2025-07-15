@@ -478,6 +478,103 @@ def create_partial_dependence_plot(
 
 
 @mcp.tool(exclude_args=["server_session"])
+def list_models(session_id: str, server_session=None) -> list[dict[str, Any]]:
+    """List all fitted models in a session.
+
+    Returns:
+        A list of dictionaries containing model information
+    """
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
+
+    results = []
+
+    for model_id, model_info in session["models"].items():
+        model = model_info["model"]
+        results.append(
+            {
+                "model_id": model_id,
+                "type": model_info["type"],
+                "formula": model_info["formula"],
+                "aic": model.aic,
+            }
+        )
+    return results
+
+
+@mcp.tool(exclude_args=["server_session"])
+def compare_models(
+    session_id: str,
+    model_ids: list[str],
+    server_session=None,
+) -> str:
+    """Compare multiple models using various metrics.
+
+    Args:
+        session_id: The ID of the analysis session
+        model_ids: List of model IDs to compare
+
+    Returns:
+        A formatted string with model comparison results
+    """
+    if server_session is None:
+        server_session = _session
+
+    session = server_session.get_session(session_id)
+
+    for model_id in model_ids:
+        if model_id not in session["models"]:
+            raise ValueError(f"Model {model_id} not found in session")
+
+    comparison_data = []
+
+    for model_id in model_ids:
+        model_info = session["models"][model_id]
+        model = model_info["model"]
+
+        metrics = {
+            "Model ID": model_id,
+            "Type": model_info["type"],
+            "Formula": model_info["formula"],
+            "AIC": model.aic,
+            "BIC": model.bic,
+            "Log-Likelihood": model.llf,
+        }
+
+        if model_info["type"] == "ols":
+            metrics.update(
+                {
+                    "R-squared": model.rsquared,
+                    "Adj. R-squared": model.rsquared_adj,
+                    "MSE": ((model.resid**2).mean()),
+                    "RMSE": np.sqrt((model.resid**2).mean()),
+                }
+            )
+        elif model_info["type"] == "logit":
+            metrics.update(
+                {
+                    "Pseudo R-squared": model.prsquared,
+                    "Percent Correctly Predicted": model.pred_table()[0]
+                    / model.pred_table().sum(),
+                }
+            )
+
+        comparison_data.append(metrics)
+
+    comparison_df = pd.DataFrame(comparison_data)
+
+    numeric_cols = comparison_df.select_dtypes(include=[np.number]).columns
+    comparison_df[numeric_cols] = comparison_df[numeric_cols].round(4)
+
+    result = comparison_df.to_markdown(index=False)
+    if result is None:
+        raise ValueError("Failed to generate markdown table")
+    return result
+
+
+@mcp.tool(exclude_args=["server_session"])
 async def visualize_model_comparison(
     session_id: str,
     model_ids: list[str],
@@ -638,103 +735,6 @@ async def visualize_model_comparison(
     plt.savefig(bytes_io, format="png")
     plt.close(fig)
     return Image(data=bytes_io.getvalue(), format="png")
-
-
-@mcp.tool(exclude_args=["server_session"])
-def compare_models(
-    session_id: str,
-    model_ids: list[str],
-    server_session=None,
-) -> str:
-    """Compare multiple models using various metrics.
-
-    Args:
-        session_id: The ID of the analysis session
-        model_ids: List of model IDs to compare
-
-    Returns:
-        A formatted string with model comparison results
-    """
-    if server_session is None:
-        server_session = _session
-
-    session = server_session.get_session(session_id)
-
-    for model_id in model_ids:
-        if model_id not in session["models"]:
-            raise ValueError(f"Model {model_id} not found in session")
-
-    comparison_data = []
-
-    for model_id in model_ids:
-        model_info = session["models"][model_id]
-        model = model_info["model"]
-
-        metrics = {
-            "Model ID": model_id,
-            "Type": model_info["type"],
-            "Formula": model_info["formula"],
-            "AIC": model.aic,
-            "BIC": model.bic,
-            "Log-Likelihood": model.llf,
-        }
-
-        if model_info["type"] == "ols":
-            metrics.update(
-                {
-                    "R-squared": model.rsquared,
-                    "Adj. R-squared": model.rsquared_adj,
-                    "MSE": ((model.resid**2).mean()),
-                    "RMSE": np.sqrt((model.resid**2).mean()),
-                }
-            )
-        elif model_info["type"] == "logit":
-            metrics.update(
-                {
-                    "Pseudo R-squared": model.prsquared,
-                    "Percent Correctly Predicted": model.pred_table()[0]
-                    / model.pred_table().sum(),
-                }
-            )
-
-        comparison_data.append(metrics)
-
-    comparison_df = pd.DataFrame(comparison_data)
-
-    numeric_cols = comparison_df.select_dtypes(include=[np.number]).columns
-    comparison_df[numeric_cols] = comparison_df[numeric_cols].round(4)
-
-    result = comparison_df.to_markdown(index=False)
-    if result is None:
-        raise ValueError("Failed to generate markdown table")
-    return result
-
-
-@mcp.tool(exclude_args=["server_session"])
-def list_models(session_id: str, server_session=None) -> list[dict[str, Any]]:
-    """List all fitted models in a session.
-
-    Returns:
-        A list of dictionaries containing model information
-    """
-    if server_session is None:
-        server_session = _session
-
-    session = server_session.get_session(session_id)
-
-    results = []
-
-    for model_id, model_info in session["models"].items():
-        model = model_info["model"]
-        results.append(
-            {
-                "model_id": model_id,
-                "type": model_info["type"],
-                "formula": model_info["formula"],
-                "aic": model.aic,
-            }
-        )
-    return results
 
 
 def main():

@@ -1,5 +1,4 @@
 import io
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -27,9 +26,11 @@ sns.set_style("whitegrid")
 class DataAnalysisSession:
     def __init__(self):
         self.sessions: dict[str, dict[str, Any]] = {}
+        self._next_id = 1
 
     def create_session(self) -> str:
-        session_id = str(uuid.uuid4())
+        session_id = str(self._next_id)
+        self._next_id += 1
         self.sessions[session_id] = {
             "data": None,
             "metadata": {},
@@ -49,11 +50,12 @@ _session = DataAnalysisSession()
 
 
 @mcp.tool(exclude_args=["server_session"])
-def create_analysis_session(server_session=None) -> str:
+def create_analysis_session(server_session=None):
     """Create a new analysis session"""
     if server_session is None:
         server_session = _session
-    return server_session.create_session()
+    session_id = server_session.create_session()
+    return {"session_id": session_id}
 
 
 @mcp.tool(exclude_args=["server_session"])

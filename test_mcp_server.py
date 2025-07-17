@@ -39,12 +39,12 @@ async def test_session_creation():
     """Test creating analysis sessions"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = result[0].text
+        session_id = json.loads(result[0].text)["session_id"]
         assert isinstance(session_id, str)
         assert len(session_id) > 0
 
         result2 = await client.call_tool("create_analysis_session", {})
-        session_id2 = result2[0].text
+        session_id2 = json.loads(result2[0].text)["session_id"]
         assert session_id != session_id2
 
 
@@ -53,7 +53,7 @@ async def test_data_loading(sample_csv_data):
     """Test loading data from CSV files"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = result[0].text
+        session_id = json.loads(result[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -77,7 +77,7 @@ async def test_data_loading_errors():
     """Test error handling in data loading"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = result[0].text
+        session_id = json.loads(result[0].text)["session_id"]
 
         # Test nonexistent file
         with pytest.raises(ToolError):
@@ -99,7 +99,7 @@ async def test_ols_regression(sample_csv_data):
     """Test OLS regression functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = result[0].text
+        session_id = json.loads(result[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -143,7 +143,7 @@ async def test_logistic_regression(sample_logistic_data):
     """Test logistic regression functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = result[0].text
+        session_id = json.loads(result[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_logistic_data)
@@ -174,7 +174,7 @@ async def test_model_diagnostics(sample_csv_data):
     """Test model diagnostic functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = result[0].text
+        session_id = json.loads(result[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -235,7 +235,7 @@ async def test_model_comparison(sample_csv_data):
     """Test model comparison functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = result[0].text
+        session_id = json.loads(result[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -291,7 +291,7 @@ async def test_partial_dependence_plots(sample_csv_data):
     """Test partial dependence plot functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = result[0].text
+        session_id = json.loads(result[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)

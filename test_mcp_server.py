@@ -39,12 +39,12 @@ async def test_session_creation():
     """Test creating analysis sessions"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = json.loads(result[0].text)["session_id"]
+        session_id = json.loads(result.content[0].text)["session_id"]
         assert isinstance(session_id, str)
         assert len(session_id) > 0
 
         result2 = await client.call_tool("create_analysis_session", {})
-        session_id2 = json.loads(result2[0].text)["session_id"]
+        session_id2 = json.loads(result2.content[0].text)["session_id"]
         assert session_id != session_id2
 
 
@@ -53,7 +53,7 @@ async def test_data_loading(sample_csv_data):
     """Test loading data from CSV files"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = json.loads(result[0].text)["session_id"]
+        session_id = json.loads(result.content[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -64,7 +64,7 @@ async def test_data_loading(sample_csv_data):
                 "load_data", {"session_id": session_id, "file_path": temp_path}
             )
             result = await client.call_tool("describe_data", {"session_id": session_id})
-            description = result[0].text
+            description = result.content[0].text
             assert "TV" in description
             assert "Radio" in description
             assert "Sales" in description
@@ -77,7 +77,7 @@ async def test_data_loading_errors():
     """Test error handling in data loading"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = json.loads(result[0].text)["session_id"]
+        session_id = json.loads(result.content[0].text)["session_id"]
 
         # Test nonexistent file
         with pytest.raises(ToolError):
@@ -99,7 +99,7 @@ async def test_ols_regression(sample_csv_data):
     """Test OLS regression functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = json.loads(result[0].text)["session_id"]
+        session_id = json.loads(result.content[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -114,7 +114,7 @@ async def test_ols_regression(sample_csv_data):
                 "run_ols_regression",
                 {"session_id": session_id, "formula": "Sales ~ TV + Radio"},
             )
-            model_info = json.loads(result[0].text)
+            model_info = json.loads(result.content[0].text)
             assert "model_id" in model_info
             assert "summary" in model_info
             assert "TV" in model_info["summary"]
@@ -124,7 +124,7 @@ async def test_ols_regression(sample_csv_data):
                 "run_ols_regression",
                 {"session_id": session_id, "formula": "Sales ~ TV"},
             )
-            model_info2 = json.loads(result2[0].text)
+            model_info2 = json.loads(result2.content[0].text)
             assert model_info["model_id"] != model_info2["model_id"]
 
             # Test invalid formula
@@ -143,7 +143,7 @@ async def test_logistic_regression(sample_logistic_data):
     """Test logistic regression functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = json.loads(result[0].text)["session_id"]
+        session_id = json.loads(result.content[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_logistic_data)
@@ -161,7 +161,7 @@ async def test_logistic_regression(sample_logistic_data):
                     "formula": "passed ~ hours_studied + practice_exams",
                 },
             )
-            model_info = json.loads(result[0].text)
+            model_info = json.loads(result.content[0].text)
             assert "model_id" in model_info
             assert "summary" in model_info
 
@@ -174,7 +174,7 @@ async def test_model_diagnostics(sample_csv_data):
     """Test model diagnostic functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = json.loads(result[0].text)["session_id"]
+        session_id = json.loads(result.content[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -189,7 +189,7 @@ async def test_model_diagnostics(sample_csv_data):
                 "run_ols_regression",
                 {"session_id": session_id, "formula": "Sales ~ TV + Radio"},
             )
-            model_info = json.loads(result[0].text)
+            model_info = json.loads(result.content[0].text)
             model_id = model_info["model_id"]
 
             # Test residual plots
@@ -197,7 +197,7 @@ async def test_model_diagnostics(sample_csv_data):
                 "create_residual_plots",
                 {"session_id": session_id, "model_id": model_id},
             )
-            image_result = result[0]
+            image_result = result.content[0]
             assert image_result.type == "image"
             assert len(image_result.data) > 0
 
@@ -206,7 +206,7 @@ async def test_model_diagnostics(sample_csv_data):
                 "model_assumptions_test",
                 {"session_id": session_id, "model_id": model_id},
             )
-            test_results = result[0].text
+            test_results = result.content[0].text
             assert "Jarque-Bera" in test_results
             assert "Breusch-Pagan" in test_results
 
@@ -215,7 +215,7 @@ async def test_model_diagnostics(sample_csv_data):
                 "influence_diagnostics",
                 {"session_id": session_id, "model_id": model_id},
             )
-            image_result = result[0]
+            image_result = result.content[0]
             assert image_result.type == "image"
             assert len(image_result.data) > 0
 
@@ -223,7 +223,7 @@ async def test_model_diagnostics(sample_csv_data):
             result = await client.call_tool(
                 "vif_table", {"session_id": session_id, "model_id": model_id}
             )
-            vif_data = result[0].text
+            vif_data = result.content[0].text
             assert "VIF" in vif_data
 
         finally:
@@ -235,7 +235,7 @@ async def test_model_comparison(sample_csv_data):
     """Test model comparison functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = json.loads(result[0].text)["session_id"]
+        session_id = json.loads(result.content[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -250,17 +250,17 @@ async def test_model_comparison(sample_csv_data):
                 "run_ols_regression",
                 {"session_id": session_id, "formula": "Sales ~ TV"},
             )
-            model1_id = json.loads(result1[0].text)["model_id"]
+            model1_id = json.loads(result1.content[0].text)["model_id"]
 
             result2 = await client.call_tool(
                 "run_ols_regression",
                 {"session_id": session_id, "formula": "Sales ~ TV + Radio"},
             )
-            model2_id = json.loads(result2[0].text)["model_id"]
+            model2_id = json.loads(result2.content[0].text)["model_id"]
 
             # Test list models
             result = await client.call_tool("list_models", {"session_id": session_id})
-            models_text = result[0].text
+            models_text = result.content[0].text
             assert model1_id in models_text
             assert model2_id in models_text
 
@@ -269,7 +269,7 @@ async def test_model_comparison(sample_csv_data):
                 "compare_models",
                 {"session_id": session_id, "model_ids": [model1_id, model2_id]},
             )
-            comparison = result[0].text
+            comparison = result.content[0].text
             assert "AIC" in comparison
             assert "BIC" in comparison
 
@@ -278,7 +278,7 @@ async def test_model_comparison(sample_csv_data):
                 "visualize_model_comparison",
                 {"session_id": session_id, "model_ids": [model1_id, model2_id]},
             )
-            image_result = result[0]
+            image_result = result.content[0]
             assert image_result.type == "image"
             assert len(image_result.data) > 0
 
@@ -291,7 +291,7 @@ async def test_partial_dependence_plots(sample_csv_data):
     """Test partial dependence plot functionality"""
     async with Client(mcp) as client:
         result = await client.call_tool("create_analysis_session", {})
-        session_id = json.loads(result[0].text)["session_id"]
+        session_id = json.loads(result.content[0].text)["session_id"]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(sample_csv_data)
@@ -306,7 +306,7 @@ async def test_partial_dependence_plots(sample_csv_data):
                 "run_ols_regression",
                 {"session_id": session_id, "formula": "Sales ~ TV + Radio"},
             )
-            model_info = json.loads(result[0].text)
+            model_info = json.loads(result.content[0].text)
             model_id = model_info["model_id"]
 
             # Test partial dependence plot
@@ -318,7 +318,7 @@ async def test_partial_dependence_plots(sample_csv_data):
                     "feature": "TV",
                 },
             )
-            image_result = result[0]
+            image_result = result.content[0]
             assert image_result.type == "image"
             assert len(image_result.data) > 0
 

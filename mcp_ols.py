@@ -45,7 +45,7 @@ class DataAnalysisSession:
         return self.sessions[session_id]
 
 
-mcp = FastMCP("linear-regression")
+mcp = FastMCP("mcp-ols")
 _session = DataAnalysisSession()
 
 
@@ -92,7 +92,7 @@ def load_data(
 
     try:
         if suffix == ".csv":
-            session["data"] = pd.read_csv(file_path)
+            session["data"] = pd.read_csv(file_path, engine="python", sep=None)
         elif suffix in (".xlsx", ".xls"):
             session["data"] = pd.read_excel(file_path)
         elif suffix == ".json":

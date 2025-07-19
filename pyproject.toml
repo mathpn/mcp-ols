@@ -1,6 +1,6 @@
 [project]
 name = "mcp-ols"
-version = "0.2.1"
+version = "0.2.2"
 description = "MCP server to add linear regression capabilities to LLMs."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,10 +25,7 @@ build-backend = "hatchling.build"
 include = ["mcp_ols.py"]
 
 [dependency-groups]
-dev = [
-    "pytest>=8.4.1",
-    "pytest-asyncio>=1.0.0",
-]
+dev = ["pytest>=8.4.1", "pytest-asyncio>=1.0.0"]
 
 [project.scripts]
 mcp-ols = "mcp_ols:main"

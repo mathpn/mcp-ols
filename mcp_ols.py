@@ -45,7 +45,7 @@ class DataAnalysisSession:
         return self.sessions[session_id]
 
 
-mcp = FastMCP("linear-regression")
+mcp = FastMCP("mcp-ols")
 _session = DataAnalysisSession()
 
 

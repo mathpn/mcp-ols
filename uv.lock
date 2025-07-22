@@ -238,7 +238,7 @@ version = "3.22.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
-    { name = "docstring-parser", marker = "python_full_version < '4.0'" },
+    { name = "docstring-parser", marker = "python_full_version < '4'" },
     { name = "rich" },
     { name = "rich-rst" },
 ]
@@ -642,7 +642,7 @@ wheels = [
 
 [[package]]
 name = "mcp-ols"
-version = "0.2.1"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
